@@ -5,7 +5,6 @@ import pandas as pd
 import datetime
 import pytz
 import Next_Now_intervals
-from app import Logger as lg
 
 instruments = pd.read_csv("https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz")
 
