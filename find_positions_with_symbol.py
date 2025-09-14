@@ -1,7 +1,7 @@
 import requests
 from kiteconnect import KiteConnect
 import Upstox as us
-import AngleOne as ar
+import AngelOne as ar
 
 def find_positions_for_symbol(broker, symbol, credentials):
     """

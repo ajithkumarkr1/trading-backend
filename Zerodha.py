@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 import datetime
 
+from logger_module import logger
+
 def zerodha_get_equity_balance(api_key, access_token):
 
     kite = KiteConnect(api_key)
@@ -15,7 +17,6 @@ def zerodha_get_equity_balance(api_key, access_token):
         "margin_used": equity_data.get("utilised", {}).get("debits", 0.0),
         "Available Margin": equity_data.get("available", {}).get("cash", 0.0)
     }
-    print(result)
     return result
 
 def zerodha_get_profile(api_key, access_token):
@@ -29,7 +30,6 @@ def zerodha_get_profile(api_key, access_token):
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             data = response.json().get("data", {})
-            print(data)
             return {
                 "user_id": data.get("user_id"),
                 "User Name": data.get("user_name"),
@@ -97,7 +97,7 @@ def zerodha_intraday_data(kite, instrument_token, interval):
     """
     today = datetime.date.today()
     # ✅ map correctly
-    if str(interval) == "1":
+    if interval == "1":
         interval_str = "minute"
     else:
         interval_str = f"{interval}minute"
@@ -110,7 +110,7 @@ def zerodha_intraday_data(kite, instrument_token, interval):
     )
     df = pd.DataFrame(data)
     if df.empty:
-        print(f"⚠️ No intraday data found for {today} (maybe holiday or before market hours).")
+        logger.write(f"⚠️ No intraday data found for {today} (maybe holiday or before market hours).")
         return pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close'])
     else:
         df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
@@ -134,7 +134,7 @@ def zerodha_last_candle_data(kite, instrument_token, interval):
     )
     df = pd.DataFrame(data)
     if df.empty:
-        print(f"⚠️ No intraday data found for {today} (maybe holiday or before market hours).")
+        logger.write(f"⚠️ No intraday data found for {today} (maybe holiday or before market hours).")
         return pd.DataFrame(columns=['timestamp', 'open', 'high', 'low', 'close'])
     else:
         df['date'] = pd.to_datetime(df['date']).dt.tz_localize(None)
@@ -159,7 +159,7 @@ def fetch_positions(api_key, access_token):
         all_positions = net_positions+day_positions
         return all_positions
     else:
-        print(f"❌ Failed to fetch positions: {response.status_code} {response.text}")
+        logger.write(f"❌ Failed to fetch positions: {response.status_code} {response.text}")
         return None
 
 def zerodha_place_order(zerodha_api_key, zerodha_access_token, tradingsymbol, quantity):
@@ -176,10 +176,10 @@ def zerodha_place_order(zerodha_api_key, zerodha_access_token, tradingsymbol, qu
             order_type="MARKET",
             price= None,
         )
-        print(f"✅ Order placed successfully! Order ID: {order_id}")
+        logger.write(f"✅ Order placed successfully! Order ID: {order_id}")
         return order_id
     except Exception as e:
-        print(f"❌ Order placement failed: {e}")
+        logger.write(f"❌ Order placement failed: {e}")
         return None
 
 def zerodha_oco_order(kite, symbol, quantity, entry_price, stoploss_price, target_price):
@@ -208,11 +208,11 @@ def zerodha_oco_order(kite, symbol, quantity, entry_price, stoploss_price, targe
                 }
             ]
         )
-        print("GTT OCO order placed:", gtt)
+        logger.write(f"GTT OCO order placed: {gtt}")
         return gtt
 
     except Exception as e:
-        print("Error placing GTT order:", e)
+        logger.write(f"Error placing GTT order: {e}")
 
 def zerodha_close_position(credentials, pos):
     zerodha_api_key = credentials['api_key']
@@ -233,10 +233,10 @@ def zerodha_close_position(credentials, pos):
             order_type="MARKET",
             price=None,
         )
-        print(f"✅ Order placed successfully! Order ID: {order_id}")
+        logger.write(f"✅ Order placed successfully! Order ID: {order_id}")
         return order_id
     except Exception as e:
-        print(f"❌ Order placement failed: {e}")
+        logger.write(f"❌ Order placement failed: {e}")
         return None
 
 def zerodha_fetch_option_data(api_key, access_token, stock, close_price, tgt, lots,option_type):
@@ -277,10 +277,10 @@ def zerodha_fetch_option_data(api_key, access_token, stock, close_price, tgt, lo
     option_instrument_token = option_details['instrument_token']
     option_tradingsymbol = option_details['tradingsymbol']
     option_lot_size = option_details['lot_size']
-    option_values = zerodha_last_candle_data(kite, option_instrument_token, 1)
-    entry = option_values['close']
+    option_values = zerodha_last_candle_data(kite, option_instrument_token, "1")
+    entry = float(option_values['close'].iloc[-1])
     option_tick_size = option_details['tick_size']
-    target = (entry*(100+tgt))/100
+    target = (int(entry)*(100+int(tgt)))/100
     target_price = round(round(target/option_tick_size)*option_tick_size,2)
     quantity = lots * option_lot_size
     zerodha_oco_order(kite, option_tradingsymbol, quantity, entry, 0, target_price)
@@ -321,7 +321,7 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
 
         positions = fetch_positions(zerodha_api_key, zerodha_access_token)
         if latest_adx > latest_adxema and latest_willr > -30 and latest_supertrend < close_price and latest_macd > latest_macd_signal:
-            print("🔼\033[92m BUY SIGNAL GENERATED\033[0m")
+            logger.write("🔼 BUY SIGNAL GENERATED")
             if positions:
                 count = 0
                 for pos in positions:
@@ -330,7 +330,7 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
                         tradingsymbol = pos.get("tradingsymbol")
                         option_type = tradingsymbol[-2:]
                         if option_type == "CE":
-                            print(
+                            logger.write(
                                 f"The existing position is type CE with symbol {tradingsymbol}. No new CALL trade placed ")
                     else:
                         count += 1
@@ -340,7 +340,7 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
                 zerodha_fetch_option_data(zerodha_api_key, zerodha_access_token, stock, close_price,  tgt, lots,"CE")
 
         elif latest_adx > latest_adxema and latest_willr < -70 and latest_supertrend > close_price and latest_macd < latest_macd_signal:
-            print("🔽\033[91m SELL SIGNAL GENERATED\033[0m")
+            logger.write("🔽 SELL SIGNAL GENERATED")
             if positions:
                 for pos in positions:
                     quantity = pos.get("quantity", 0)
@@ -348,12 +348,12 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
                         tradingsymbol = pos.get("tradingsymbol")
                         option_type = tradingsymbol[-2:]
                         if option_type == "PE":
-                            print(f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
+                            logger.write(f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
                         zerodha_fetch_option_data(zerodha_api_key, zerodha_access_token, stock, close_price,  tgt, lots,"PE")
             else:
                 zerodha_fetch_option_data(zerodha_api_key, zerodha_access_token, stock, close_price, tgt, lots, "PE")
         else:
-            print("⏸️\033[93m NO TRADE SIGNAL GENERATED\033[0m")
+            logger.write("⏸️ NO TRADE SIGNAL GENERATED")
 
     elif strategy == "Ema10_Ema20_Supertrend":
         latest_Ema10 = indicators_df["ema10"].iloc[-1]
@@ -376,7 +376,7 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
 
         positions = fetch_positions(zerodha_api_key, zerodha_access_token)
         if latest_Ema10 > latest_Ema20 and latest_supertrend < close_price:
-            print("🔼\033[92m BUY SIGNAL GENERATED\033[0m")
+            logger.write("🔼 BUY SIGNAL GENERATED")
             if positions:
                 count = 0
                 for pos in positions:
@@ -385,7 +385,7 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
                         tradingsymbol = pos.get("tradingsymbol")
                         option_type = tradingsymbol[-2:]
                         if option_type == "CE":
-                            print(
+                            logger.write(
                                 f"The existing position is type CE with symbol {tradingsymbol}. No new CALL trade placed ")
                     else:
                         count += 1
@@ -396,7 +396,7 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
                 zerodha_fetch_option_data(zerodha_api_key, zerodha_access_token, stock, close_price, tgt, lots, "CE")
 
         elif latest_Ema10 < latest_Ema20 and latest_supertrend > close_price:
-            print("🔽\033[91m SELL SIGNAL GENERATED\033[0m")
+            logger.write("🔽 SELL SIGNAL GENERATED")
             if positions:
                 for pos in positions:
                     quantity = pos.get("quantity", 0)
@@ -404,12 +404,12 @@ def zerodha_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,
                         tradingsymbol = pos.get("tradingsymbol")
                         option_type = tradingsymbol[-2:]
                         if option_type == "PE":
-                            print(
+                            logger.write(
                                 f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
                         zerodha_fetch_option_data(zerodha_api_key, zerodha_access_token, stock, close_price, tgt, lots,
                                                   "PE")
             else:
                 zerodha_fetch_option_data(zerodha_api_key, zerodha_access_token, stock, close_price, tgt, lots, "PE")
         else:
-            print("⏸️\033[93m NO TRADE SIGNAL GENERATED\033[0m")
+            logger.write("⏸️ NO TRADE SIGNAL GENERATED")
 

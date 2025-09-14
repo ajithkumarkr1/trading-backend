@@ -1,7 +1,11 @@
 import datetime
 
 def round_to_next_interval(interval_minutes):
-    interval_minutes = int(interval_minutes)
+    if not str(interval_minutes).strip():
+        interval_minutes = 1
+    else:
+        interval_minutes = int(interval_minutes)
+
     now = datetime.datetime.now()
     base = datetime.datetime.combine(now.date(), datetime.time(0, 15))
     elapsed = (now - base).total_seconds()

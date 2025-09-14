@@ -3,9 +3,10 @@ import threading
 from flask_cors import CORS
 import Upstox as us
 import Zerodha as zr
-import AngleOne as ar
+import AngelOne as ar
 import Groww as gr
 import Fivepaisa as fp
+from logger_module import logger
 import os
 import get_lot_size as ls
 import Next_Now_intervals as nni
@@ -90,25 +91,6 @@ trade_logs = []
 active_trades = {}   # { "NIFTY": True, "RELIANCE": False }
 broker_sessions = {}
 
-# Redirect print statements to a list for frontend display
-class Logger:
-    def __init__(self):
-        self.logs = []
-
-    def write(self, message: str):
-        """Store log, print to terminal, and keep for frontend"""
-        timestamped = f"{datetime.datetime.now().strftime('%H:%M:%S')} | {message}"
-        self.logs.append(timestamped)
-        print(timestamped, flush=True)
-
-    def get_logs(self):
-        """Return all collected logs (for API calls)"""
-        return self.logs
-
-    def clear(self):
-        """Clear all logs (optional)"""
-        self.logs = []
-
 def log_stream():
     yield "data: 🟢 Trading started...\n\n"
     for i in range(1, 11):
@@ -116,8 +98,6 @@ def log_stream():
         time.sleep(2)
     yield "data: ✅ Trading finished.\n\n"
 
-# Create a single Logger instance at the module level
-logger = Logger()
 
 @app.route("/api/stream-logs")
 def stream_logs():
@@ -178,8 +158,8 @@ def connect_broker():
                 user_id = creds.get('user_id')
                 pin = creds.get('pin')
                 totp_secret = creds.get('totp_secret')
-                obj, refresh_token, auth_token,feed_token = ar.angleone_connect(api_key, user_id, pin, totp_secret)
-                profile, balance = ar.angleone_fetch_profile_and_balance(obj, refresh_token)
+                obj, refresh_token, auth_token,feed_token = ar.angelone_connect(api_key, user_id, pin, totp_secret)
+                profile, balance = ar.angelone_fetch_profile_and_balance(obj, refresh_token)
                 if profile and balance:
                     status = "success"
                     message = "Connected successfully."
@@ -195,7 +175,6 @@ def connect_broker():
                 app_key = creds.get('app_key')
                 access_token = creds.get('access_token')
                 client_code = creds.get("client_id")
-                print(app_key, client_code,access_token)
                 #profile = "5Paisa don't have the Profile Fetch fecility"
                 profile = {'User Name':client_code,}
                 balance = fp.fivepaisa_get_balance(app_key, access_token, client_code)
@@ -279,7 +258,7 @@ def find_positions_for_symbol(broker, symbol, credentials):
             if not session:
                 return jsonify({"status": "failed", "message": "Broker not connected."})
             auth_token = session["auth_token"]
-            positions = ar.angleone_fetch_positions(api_key, auth_token)
+            positions = ar.angeeone_fetch_positions(api_key, auth_token)
         # --- 5 Paisa ---
         elif broker.lower() == "5paisa":
             app_key = credentials.get("app_key")
@@ -338,8 +317,9 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                     api_key = broker_info['credentials'].get("api_key")
                     access_token = broker_info['credentials'].get("access_token")
                     instrument_key = zr.zerodha_instruments_token(api_key, access_token, symbol)
-            elif broker_name.lower() == "angleone":
-               instrument_key = ar.angleone_get_token_by_name(company)
+            elif broker_name.lower() == "angelone":
+               logger.write(company)
+               instrument_key = ar.angelone_get_token_by_name(symbol)
             elif broker_name.lower() == "5paisa":
                instrument_key = fp.fivepaisa_scripcode_fetch(symbol)
 
@@ -361,6 +341,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
     while any(active_trades.values()):
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if now >= next_interval:
+            interval = trading_parameters[0].get("interval", "1minute")
             now_interval, next_interval = nni.round_to_next_interval(interval)
 
             # STEP 2: Fetch data + indicators
@@ -400,7 +381,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                             idf = zr.zerodha_intraday_data(kite, instrument_key, interval)
                             if hdf is not None and idf is not None:
                                 combined_df = cdf.combinding_dataframes(hdf, idf)
-                    elif broker_name.lower() == "angleone":
+                    elif broker_name.lower() == "angelone":
                         broker_info = next((b for b in selected_brokers if b['name'] == broker_key), None)
                         if broker_info:
                             api_key = broker_info['credentials'].get("api_key")
@@ -413,13 +394,13 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                             obj = session["obj"]
                             auth_token = session["auth_token"]
                             interval = ar.number_to_interval(interval)
-                            combined_df = ar.angleone_get_historical_data(api_key,auth_token, obj,"NSE", instrument_key, interval)
+                            combined_df = ar.angelone_get_historical_data(api_key,auth_token, obj,"NSE", instrument_key, interval)
                     elif broker_name.lower() == "5paisa":
                         broker_info = next((b for b in selected_brokers if b['name'] == broker_key), None)
                         if broker_info:
                             app_key = broker_info['credentials'].get("app_key")
                             access_token = broker_info['credentials'].get("access_token")
-                            combined_df = fp.fivepaisa_historical_data_fetch(access_token, instrument_key, interval)
+                            combined_df = fp.fivepaisa_historical_data_fetch(access_token, instrument_key, interval,25)
 
                 except Exception as e:
                     logger.write(f"❌ Error fetching data for {symbol}: {e}")
@@ -429,6 +410,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                     continue
 
                 logger.write(f"✅ Data ready for {symbol}")
+                time.sleep(0.5)
                 indicators_df = ind.all_indicators(combined_df)
                 row = indicators_df.tail(1).iloc[0]
                 cols = indicators_df.columns.tolist()
@@ -450,6 +432,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                 logger.write(f"📊 Checking trade conditions for {symbol}")
                 lots = stock.get("lots")
                 target_pct = stock.get("target_percentage")
+                name = stock.get("symbol")
 
                 try:
                     creds = next((b["credentials"] for b in selected_brokers if b["name"] == broker_key), None)
@@ -457,14 +440,14 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                         us.upstox_trade_conditions_check(lots, target_pct, indicators_df.tail(1), creds, company,strategy)
                     elif broker_name.lower() == "zerodha":
                         zr.zerodha_trade_conditions_check(lots, target_pct, indicators_df.tail(1), creds, symbol,strategy)
-                    elif broker_name.lower() == "angleone":
+                    elif broker_name.lower() == "angelone":
                         session = broker_sessions.get(broker_name)
                         if not session:
                             return jsonify({"status": "failed", "message": "Broker not connected."})
                         obj = session["obj"]
                         auth_token = session["auth_token"]
                         interval = ar.number_to_interval(interval)
-                        ar.angleone_trade_conditions_check(obj, auth_token, lots, target_pct, indicators_df, creds, stock,strategy)
+                        ar.angelone_trade_conditions_check(obj, auth_token, lots, target_pct, indicators_df, creds, name,strategy)
                     elif broker_name.lower() == "5paisa":
                         fp.fivepaisa_trade_conditions_check(lots, target_pct, indicators_df, creds, stock,strategy)
 

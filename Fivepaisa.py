@@ -2,6 +2,7 @@ import requests
 from tabulate import tabulate
 import datetime
 import pandas as pd
+from logger_module import logger
 
 url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/all"
 instruments = pd.read_csv(url)
@@ -27,7 +28,7 @@ def fivepaisa_get_balance(app_key, access_token, client_code):
         balance = {"Available Margin": balance_data['body']['EquityMargin'][0]['NetAvailableMargin']}
         return balance
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        logger.write(f"Error: {response.status_code} - {response.text}")
         return None
 
 def fivepaisa_scripcode_fetch(name):
@@ -43,16 +44,13 @@ def fivepaisa_scripcode_fetch(name):
 
     if not result.empty:
         scrip_code = result.iloc[0]["ScripCode"]
-        print(f"ScripCode for {name} (NSE) is: {scrip_code}")
+        logger.write(f"ScripCode for {name} (NSE) is: {scrip_code}")
         return scrip_code
     else:
         print(f"No match found for {name} in NSE")
 
 def fivepaisa_get_nearest_option(symbol_root, spot_value, option_type):
     # Load 5paisa instruments master
-    url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/all"
-    instruments = pd.read_csv(url)
-
     # Filter base instruments
     df = instruments[
         (instruments["Exch"] == "N") &
@@ -110,14 +108,17 @@ def fivepaisa_fetch_positions(app_key, access_token, client_code):
         net_positions = positions_data['body']['NetPositionDetail']
         return net_positions
     else:
-        print(f"Error: {response.status_code} - {response.text}")
+        logger.write(f"Error: {response.status_code} - {response.text}")
         return None
 
-def fivepaisa_historical_data_fetch(access_token, scripCode, interval):
+def fivepaisa_historical_data_fetch(access_token, scripCode, interval,days):
   end_date = datetime.datetime.today().strftime("%Y-%m-%d")
-  from_date = (datetime.datetime.today()-datetime.timedelta(days = 25)).strftime("%Y-%m-%d")
-
-  url = f"https://openapi.5paisa.com/V2/historical/N/C/{scripCode}/{interval}?from={from_date}&end={end_date}"
+  from_date = (datetime.datetime.today()-datetime.timedelta(days = days)).strftime("%Y-%m-%d")
+  if days == 25:
+      exchange_type = "C"
+  elif days == 1:
+      exchange_type = "D"
+  url = f"https://openapi.5paisa.com/V2/historical/N/{exchange_type}/{scripCode}/{interval}?from={from_date}&end={end_date}"
 
   headers = {"Content-Type": "application/json", "Authorization": f"Bearer {access_token}"}
   resp = requests.get(url, headers=headers)
@@ -137,10 +138,10 @@ def fivepaisa_historical_data_fetch(access_token, scripCode, interval):
       df.set_index("dateTime", inplace=True)
       return df
     else:
-      print("❌ No candle data found in response.")
+      logger.write("❌ No candle data found in response.")
       return pd.DataFrame()
   else:
-    print(f"❌ Error: {resp.status_code} - {resp.text}")
+    logger.write(f"❌ Error: {resp.status_code} - {resp.text}")
     return pd.DataFrame()
 
 def fivepaisa_close_position(credentials, pos):
@@ -178,9 +179,9 @@ def fivepaisa_close_position(credentials, pos):
     resp = requests.post(url, headers=headers, json=payload)
 
     if resp.status_code == 200:
-        print(resp.json())
+        logger.write(resp.json())
     else:
-        print("Error:", resp.status_code, resp.text)
+        logger.write("Error:", resp.status_code, resp.text)
 
 def fivepaisa_place_single_order(access_token, scripCode, user_key, scrip_data, price, quantity, order_type):
     url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V1/PlaceOrderRequest"
@@ -213,9 +214,9 @@ def fivepaisa_place_single_order(access_token, scripCode, user_key, scrip_data, 
     resp = requests.post(url, headers=headers, json=payload)
 
     if resp.status_code == 200:
-        print(resp.json())
+        logger.write(resp.json())
     else:
-        print("Error:", resp.status_code, resp.text)
+        logger.write("Error:", resp.status_code, resp.text)
 
 def fivepaisa_place_bracket_order(access_token, scripCode, user_key, scrip_data, price, quantity, order_type, target):
     url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/V1/PlaceOrderRequest"
@@ -231,14 +232,14 @@ def fivepaisa_place_bracket_order(access_token, scripCode, user_key, scrip_data,
             "OrderType": order_type,              # "B" = Buy, "S" = Sell
             "Exchange": "N",               # N = NSE, B = BSE, M = MCX
             "ExchangeType": "D",           # C = Cash, D = Derivatives, U = Currency
-            "ScripCode": scripCode,        # Numeric ScripCode
-            "ScripData": scrip_data,       # Symbol format
-            "Price": price,                # Limit Price
+            "ScripCode": str(scripCode),        # Numeric ScripCode
+            "ScripData": str(scrip_data),       # Symbol format
+            "Price": float(price),                # Limit Price
             "PriceType": "L",              # L = Limit, MKT = Market
             "StopLossPrice": 0,
-            "TargetPrice": target,  # ✅ Target
+            "TargetPrice": float(target),  # ✅ Target
             #"TrailingSL": 5,  # Optional
-            "Qty": quantity,
+            "Qty": int(quantity),
             "DisQty": 0,
             "IsIntraday": True,
             "IsStopLossOrder": False,
@@ -250,67 +251,45 @@ def fivepaisa_place_bracket_order(access_token, scripCode, user_key, scrip_data,
     resp = requests.post(url, headers=headers, json=payload)
 
     if resp.status_code == 200:
-        print(resp.json())
+        logger.write(resp.json())
     else:
-        print("Error:", resp.status_code, resp.text)
+        logger.write("Error:", resp.status_code, resp.text)
 
-def fivepaisa_get_nearest_option(symbol_root, spot_value, option_type):
-    # Load 5paisa instruments master
-    url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/all"
-    instruments = pd.read_csv(url)
+def format_option_name(option_str: str) -> str:
+    parts = option_str.split()
+    # Example: ['HDFCBANK', '30', 'SEP', '2025', 'PE', '970.00']
+    symbol = parts[0]
+    day = parts[1]
+    month = parts[2].upper()
+    year = parts[3]
+    option_type = parts[4]
+    strike = parts[5].split('.')[0]  # remove decimals
 
-    # Filter base instruments
-    df = instruments[
-        (instruments["Exch"] == "N") &
-        (instruments["SymbolRoot"] == symbol_root) &
-        (instruments["ScripType"] == option_type)
-    ].copy()
+    # Convert "30 SEP 2025" → "20250930"
+    expiry_date = datetime.datetime.strptime(f"{day} {month} {year}", "%d %b %Y")
+    expiry_str = expiry_date.strftime("%Y%m%d")
 
-    if df.empty:
-        return None
-
-    # Parse expiry dates
-    df["Expiry"] = pd.to_datetime(df["Expiry"], errors="coerce")
-
-    # Sort by expiry
-    df = df.sort_values("Expiry")
-
-    today = datetime.datetime.now().date()
-    tomorrow = today + datetime.timedelta(days=1)
-
-    # Exclude today and tomorrow expiry
-    df = df[~df["Expiry"].isin([pd.Timestamp(today), pd.Timestamp(tomorrow)])]
-
-    if df.empty:
-        return None
-
-    # Choose nearest expiry (smallest future expiry)
-    nearest_expiry = df["Expiry"].min()
-    df = df[df["Expiry"] == nearest_expiry]
-
-    # Find nearest strike to spot value
-    df["StrikeDiff"] = abs(df["StrikeRate"] - spot_value)
-    df = df.sort_values("StrikeDiff")
-
-    # Pick the top row
-    return df.iloc[[0]]
+    return f"{symbol}_{expiry_str}_{option_type}_{strike}"
 
 def fivepaisa_fetch_option_data(access_token, user_key, stock, close_price, tgt, lots,option_type):
 
     nearest_option = fivepaisa_get_nearest_option(stock, close_price, option_type)
     scrip_code = nearest_option['ScripCode'].values[0]
-    scrip_data = nearest_option['Name'].values[0]
-    lot_size = nearest_option['LotSize'].value[0]
-    tick_size = nearest_option['TickSize']
-    option_candle_data = fivepaisa_historical_data_fetch(access_token, scrip_code, 1)
-    close_price = option_candle_data['Close'].iat[-1]
-    target = round(((close_price * (100+tgt))/100)/tick_size)*tick_size
-    quantity = lots*lot_size
+    scripdata = nearest_option['Name'].values[0]
+    scrip_data = format_option_name(scripdata)
+    lot_size = int(nearest_option['LotSize'].values[0])
+    tick_size = float(nearest_option['TickSize'].values[0])
+    print(f"{scrip_code}--{scrip_data}--{lot_size}--{tick_size}")
+    option_candle_data = fivepaisa_historical_data_fetch(access_token, scrip_code, 1,1)
+    close_price = option_candle_data['close'].iat[-1]
+    target = round(((int(close_price) * (100+int(tgt)))/100)/tick_size)*tick_size
+    quantity = int(lots)*lot_size
     fivepaisa_place_bracket_order(access_token, scrip_code, user_key, scrip_data, close_price, quantity, "B",target)
 
 
-def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stock,strategy):
+def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stock_details,strategy):
 
+    stock= stock_details['symbol']
     access_token = credentials['access_token']
     user_key = credentials['app_key']
     client_code = credentials['client_id']
@@ -346,7 +325,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
 
         positions = fivepaisa_fetch_positions(user_key, access_token, client_code)
         if latest_adx > latest_adxema and latest_willr > -30 and latest_supertrend < close_price and latest_macd > latest_macd_signal:
-            print("🔼\033[92m BUY SIGNAL GENERATED\033[0m")
+            logger.write("🔼 BUY SIGNAL GENERATED")
             if positions:
                 count = 0
                 for pos in positions:
@@ -355,7 +334,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
                         tradingsymbol = pos['tradingsymbol']
                         option_type = tradingsymbol[-2:]
                         if option_type == "CE":
-                            print(
+                            logger.write(
                                 f"The existing position is type CE with symbol {tradingsymbol}. No new CALL trade placed ")
                     else:
                         count += 1
@@ -365,7 +344,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
                 fivepaisa_fetch_option_data(access_token, user_key, stock, close_price, tgt, lots, "CE")
 
         elif latest_adx > latest_adxema and latest_willr < -70 and latest_supertrend > close_price and latest_macd < latest_macd_signal:
-            print("🔽\033[91m SELL SIGNAL GENERATED\033[0m")
+            logger.write("🔽 SELL SIGNAL GENERATED")
             if positions:
                 for pos in positions:
                     quantity = pos['quantity']
@@ -373,12 +352,12 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
                         tradingsymbol = pos['tradingsymbol']
                         option_type = tradingsymbol[-2:]
                         if option_type == "PE":
-                            print(f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
+                            logger.write(f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
                         fivepaisa_fetch_option_data(access_token, user_key, stock, close_price, tgt, lots,"PE")
             else:
                 fivepaisa_fetch_option_data(access_token, user_key, stock, close_price, tgt, lots, "PE")
         else:
-            print("⏸️\033[93m NO TRADE SIGNAL GENERATED\033[0m")
+            logger.write("⏸️ NO TRADE SIGNAL GENERATED")
 
     elif strategy == "Ema10_Ema20_Supertrend":
         # ✅ Check for signal
@@ -405,7 +384,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
 
         positions = fivepaisa_fetch_positions(user_key, access_token, client_code)
         if latest_Ema10 > latest_Ema20 and latest_supertrend < close_price:
-            print("🔼\033[92m BUY SIGNAL GENERATED\033[0m")
+            logger.write("🔼 BUY SIGNAL GENERATED")
             if positions:
                 count = 0
                 for pos in positions:
@@ -414,7 +393,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
                         tradingsymbol = pos['tradingsymbol']
                         option_type = tradingsymbol[-2:]
                         if option_type == "CE":
-                            print(f"The existing position is type CE with symbol {tradingsymbol}. No new CALL trade placed ")
+                            logger.write(f"The existing position is type CE with symbol {tradingsymbol}. No new CALL trade placed ")
                     else:
                         count += 1
                         if count == 1:
@@ -423,7 +402,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
                 fivepaisa_fetch_option_data(access_token, user_key, stock, close_price, tgt, lots, "CE")
 
         elif latest_Ema10 < latest_Ema20 or latest_supertrend > close_price:
-            print("🔽\033[91m SELL SIGNAL GENERATED\033[0m")
+            logger.write("🔽 SELL SIGNAL GENERATED")
             if positions:
                 count = 0
                 for pos in positions:
@@ -432,7 +411,7 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
                         tradingsymbol = pos['tradingsymbol']
                         option_type = tradingsymbol[-2:]
                         if option_type == "PE":
-                            print(f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
+                            logger.write(f"The existing position is type PE with symbol {tradingsymbol}. No new PUT trade placed ")
                     else:
                         count += 1
                         if count == 1:
@@ -440,4 +419,4 @@ def fivepaisa_trade_conditions_check(lots, tgt, indicators_df, credentials, stoc
             else:
                 fivepaisa_fetch_option_data(access_token, user_key, stock, close_price, tgt, lots, "PE")
         else:
-            print("⏸️\033[93m NO TRADE SIGNAL GENERATED\033[0m")
+            logger.write("⏸️ NO TRADE SIGNAL GENERATED")
