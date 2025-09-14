@@ -3,9 +3,35 @@ from tabulate import tabulate
 import datetime
 import pandas as pd
 from logger_module import logger
+from io import StringIO
 
-url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/all"
-instruments = pd.read_csv(url)
+
+def load_instruments():
+    url = "https://Openapi.5paisa.com/VendorsAPI/Service1.svc/ScripMaster/segment/all"
+    resp = requests.get(url)
+
+    if resp.status_code == 200:
+        content_type = resp.headers.get("Content-Type", "")
+
+        try:
+            if "text/csv" in content_type.lower():
+                # API really returned CSV
+                return pd.read_csv(StringIO(resp.text))
+            else:
+                # Most likely JSON response
+                data = resp.json()
+                return pd.DataFrame(data)
+        except Exception as e:
+            print("⚠️ Error parsing instruments:", e)
+            return pd.DataFrame()
+    else:
+        print(f"❌ Error fetching instruments: {resp.status_code} - {resp.text}")
+        return pd.DataFrame()
+
+
+# ✅ Load once globally so rest of the code is not disturbed
+instruments = load_instruments()
+
 
 def fivepaisa_get_balance(app_key, access_token, client_code):
 
