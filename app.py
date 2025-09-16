@@ -21,7 +21,7 @@ from kiteconnect import KiteConnect
 app = Flask(__name__)
 CORS(app)
 
-app.route("/")
+app.route("/", methods=["GET"])
 def home():
     return {"status": "Backend is running 🚀"}
 
