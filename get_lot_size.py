@@ -30,5 +30,3 @@ def lot_size(name):
     else:
         print("❌ No matching option instrument found")
         return
-
-lot_size("HDFC BANK LTD")
