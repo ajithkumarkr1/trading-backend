@@ -14,7 +14,6 @@ import combinding_dataframes as cdf
 import indicators as ind
 import datetime
 import time
-import gevent
 from tabulate import tabulate
 from kiteconnect import KiteConnect
 
@@ -111,7 +110,7 @@ def stream_logs():
                 for log in new_logs:
                     yield f"data: {log}\n\n"
                 last_index += len(new_logs)
-            gevent.sleep(1)  # avoid tight loop
+            time.sleep(1)  # avoid tight loop
 
     return Response(event_stream(), mimetype="text/event-stream")
 
