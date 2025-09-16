@@ -1,3 +1,7 @@
+from gevent import monkey
+monkey.patch_all()
+
+import gevent
 from flask import Flask, request, jsonify, Response
 import threading
 from flask_cors import CORS
@@ -14,7 +18,6 @@ import combinding_dataframes as cdf
 import indicators as ind
 import datetime
 import time
-import gevent
 from tabulate import tabulate
 from kiteconnect import KiteConnect
 
