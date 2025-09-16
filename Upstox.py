@@ -1,5 +1,6 @@
 import sys
 import time
+import gevent
 from collections import deque
 import requests
 import pandas as pd
@@ -174,7 +175,7 @@ def upstox_fetch_intraday_data(access_token, instrument_key, interval):
         except Exception as e:
             logger.write(f"🚨 Exception in fetch_intraday_data: {e}")
 
-        time.sleep(sleep_interval)
+        gevent.sleep(sleep_interval)
         waited += sleep_interval
 
     print("❌ Failed to fetch complete candle data within 30 seconds.")
@@ -237,12 +238,12 @@ def upstox_ohlc_data_fetch(access_token, instrument_key):
                     return None
             else:
                 logger.write("OHLC Error:", response.status_code, response.text)
-                time.sleep(2)
+                gevent.sleep(2)
                 return None
         except requests.exceptions.RequestException as e:
             logger.write(f"🔌 OHLC Network error (attempt {attempt}/{retries}): {e}")
 
-        time.sleep(1)
+        gevent.sleep(1)
 
 def upstox_live_option_Value(access_token, instrument_key):
     url = 'https://api.upstox.com/v3/market-quote/ohlc'
