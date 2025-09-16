@@ -21,6 +21,10 @@ from kiteconnect import KiteConnect
 app = Flask(__name__)
 CORS(app)
 
+app.route("/")
+def home():
+    return {"status": "Backend is running 🚀"}
+
 broker_map = {
     "u": "Upstox",
     "z": "Zerodha",
