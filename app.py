@@ -5,22 +5,12 @@ import gevent
 from flask import Flask, request, jsonify, Response
 import threading
 from flask_cors import CORS
-import Upstox as us
-import Zerodha as zr
-import AngelOne as ar
-import Groww as gr
-import Fivepaisa as fp
-from logger_module import logger
 import os
-import get_lot_size as ls
-import Next_Now_intervals as nni
-import combinding_dataframes as cdf
-import indicators as ind
 import datetime
 import time
 from tabulate import tabulate
 from kiteconnect import KiteConnect
-
+from logger_module import logger
 
 app = Flask(__name__)
 CORS(app)
@@ -125,6 +115,11 @@ def stream_logs():
 # === CONNECT BROKER ===
 @app.route('/api/connect-broker', methods=['POST'])
 def connect_broker():
+    import Upstox as us
+    import Zerodha as zr
+    import AngelOne as ar
+    import Groww as gr
+    import Fivepaisa as fp
     data = request.get_json()
     brokers_data = data.get('brokers', [])
     responses = []
@@ -223,6 +218,7 @@ def connect_broker():
 # === LOT SIZE ===
 @app.route('/api/get-lot-size', methods=['GET'])
 def get_lot_size():
+    import get_lot_size as ls
     symbol = request.args.get('symbol')
     print(symbol)
     if not symbol:
@@ -239,6 +235,11 @@ def find_positions_for_symbol(broker, symbol, credentials):
     """
     Fetch positions for the given broker and return only those matching the symbol.
     """
+    import Upstox as us
+    import Zerodha as zr
+    import AngelOne as ar
+    import Groww as gr
+    import Fivepaisa as fp
     positions = []
 
     try:
@@ -295,6 +296,14 @@ def find_positions_for_symbol(broker, symbol, credentials):
 
 # === TRADING LOOP FOR ALL STOCKS ===
 def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
+    import Upstox as us
+    import Zerodha as zr
+    import AngelOne as ar
+    import Groww as gr
+    import Fivepaisa as fp
+    import Next_Now_intervals as nni
+    import combinding_dataframes as cdf
+    import indicators as ind
     # mark all as active initially
     for stock in trading_parameters:
         active_trades[stock['symbol']] = True
@@ -525,6 +534,11 @@ def close_position():
 
 @app.route("/api/close-all-positions", methods=["POST"])
 def close_all_positions():
+    import Upstox as us
+    import Zerodha as zr
+    import AngelOne as ar
+    import Groww as gr
+    import Fivepaisa as fp
     data = request.json
     trading_parameters = data.get("tradingParameters", [])  # list of active stocks
     selected_brokers = data.get("selectedBrokers", [])      # broker credentials
