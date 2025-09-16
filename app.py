@@ -14,6 +14,7 @@ import combinding_dataframes as cdf
 import indicators as ind
 import datetime
 import time
+import gevent
 from tabulate import tabulate
 from kiteconnect import KiteConnect
 
@@ -99,7 +100,7 @@ def log_stream():
     yield "data: 🟢 Trading started...\n\n"
     for i in range(1, 11):
         yield f"data: 🔔 Trade signal {i} at {time.strftime('%H:%M:%S')}\n\n"
-        time.sleep(2)
+        gevent.sleep(2)
     yield "data: ✅ Trading finished.\n\n"
 
 
@@ -114,7 +115,7 @@ def stream_logs():
                 for log in new_logs:
                     yield f"data: {log}\n\n"
                 last_index += len(new_logs)
-            time.sleep(1)  # avoid tight loop
+            gevent.sleep(1)  # avoid tight loop
 
     return Response(event_stream(), mimetype="text/event-stream")
 
@@ -415,7 +416,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                     continue
 
                 logger.write(f"✅ Data ready for {symbol}")
-                time.sleep(0.5)
+                gevent.sleep(0.5)
                 indicators_df = ind.all_indicators(combined_df)
                 row = indicators_df.tail(1).iloc[0]
                 cols = indicators_df.columns.tolist()
@@ -460,7 +461,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                     logger.write(f"❌ Error running strategy for {symbol}: {e}")
 
             logger.write("✅ Trading cycle complete")
-            time.sleep(1)  # wait before next cycle
+            gevent.sleep(1)  # wait before next cycle
 
 # === START ALL TRADING ===
 @app.route('/api/start-all-trading', methods=['POST'])
