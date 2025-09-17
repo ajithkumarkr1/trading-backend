@@ -1,4 +1,5 @@
 import datetime
+import pytz
 
 def round_to_next_interval(interval_minutes):
     if not str(interval_minutes).strip():
@@ -6,7 +7,8 @@ def round_to_next_interval(interval_minutes):
     else:
         interval_minutes = int(interval_minutes)
 
-    now = datetime.datetime.now()
+    ist = pytz.timezone("Asia/Kolkata")
+    now = datetime.datetime.now(ist)
     base = datetime.datetime.combine(now.date(), datetime.time(0, 15))
     elapsed = (now - base).total_seconds()
 
