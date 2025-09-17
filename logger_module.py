@@ -9,7 +9,7 @@ class Logger:
     def write(self, message: str):
         """Store log, print to terminal, and keep for frontend"""
         now_ist = datetime.datetime.now(self.ist)  # always in IST
-        timestamped = f"{datetime.datetime.now().strftime('%H:%M:%S')} | {message}"
+        timestamped = f"{now_ist.strftime('%H:%M:%S')} | {message}"
         self.logs.append(timestamped)
         print(timestamped, flush=True)
 
