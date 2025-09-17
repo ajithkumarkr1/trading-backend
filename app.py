@@ -359,11 +359,6 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
     now_interval, next_interval = nni.round_to_next_interval(interval)
     print(f"Present Interval Start : {now_interval}, Next Interval Start :{next_interval}")
 
-    # STEP 3: Check trade conditions
-    if not active_trades.get(symbol):
-        logger.write(f"⏹ {symbol} disconnected, skipping trade conditions.")
-        continue
-
     # loop until all stocks disconnected
     while any(active_trades.values()):
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -456,6 +451,9 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                 #logger.write(tabulate(indicators_df.tail(1), headers="keys", tablefmt="pretty", showindex=False))
 
                 # STEP 3: Check trade conditions
+                if not active_trades.get(symbol):   # 🚨 extra guard
+                    logger.write(f"⏹ {symbol} disconnected, skipping trade conditions.")
+                    continue
                 logger.write(f"📊 Checking trade conditions for {symbol}")
                 lots = stock.get("lots")
                 target_pct = stock.get("target_percentage")
