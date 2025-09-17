@@ -358,6 +358,12 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
     interval = trading_parameters[0].get("interval", "1minute")
     now_interval, next_interval = nni.round_to_next_interval(interval)
     print(f"Present Interval Start : {now_interval}, Next Interval Start :{next_interval}")
+
+    # STEP 3: Check trade conditions
+    if not active_trades.get(symbol):
+        logger.write(f"⏹ {symbol} disconnected, skipping trade conditions.")
+        continue
+
     # loop until all stocks disconnected
     while any(active_trades.values()):
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -476,6 +482,7 @@ def run_trading_logic_for_all(trading_parameters, selected_brokers,logger):
                     logger.write(f"❌ Error running strategy for {symbol}: {e}")
 
             logger.write("✅ Trading cycle complete")
+            logger.write(f"Present Interval Start : {now_interval}, Next Interval Start :{next_interval}")
             gevent.sleep(1)  # wait before next cycle
 
 # === START ALL TRADING ===
