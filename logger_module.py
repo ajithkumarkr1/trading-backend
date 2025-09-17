@@ -4,6 +4,7 @@ import pytz
 class Logger:
     def __init__(self):
         self.logs = []
+        self.ist = pytz.timezone("Asia/Kolkata")
 
     def write(self, message: str):
         """Store log, print to terminal, and keep for frontend"""
