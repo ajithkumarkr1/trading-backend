@@ -9,7 +9,7 @@ def round_to_next_interval(interval_minutes):
 
     ist = pytz.timezone("Asia/Kolkata")
     now = datetime.datetime.now(ist)
-    base = datetime.datetime.combine(now.date(), datetime.time(0, 15))
+    base = ist.localize(datetime.datetime.combine(now.date(), datetime.time(0, 15)))
     elapsed = (now - base).total_seconds()
 
     if elapsed < 0:
