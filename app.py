@@ -597,8 +597,7 @@ def disconnect_stock():
     symbol = data.get("symbol")
 
     if symbol in active_trades:
-        # ❌ Remove the symbol from active_trades completely
-        active_trades.pop(symbol, None)
+         active_trades[symbol] = False # ✅ mark inactive
         return jsonify({"message": f"❌ {symbol} Disconnected"})
 
     return jsonify({"message": "⚠️ Stock not active"})
