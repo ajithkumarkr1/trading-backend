@@ -1,5 +1,5 @@
 import datetime
-
+import pytz
 
 class Logger:
     def __init__(self):
@@ -7,6 +7,7 @@ class Logger:
 
     def write(self, message: str):
         """Store log, print to terminal, and keep for frontend"""
+        now_ist = datetime.datetime.now(self.ist)  # always in IST
         timestamped = f"{datetime.datetime.now().strftime('%H:%M:%S')} | {message}"
         self.logs.append(timestamped)
         print(timestamped, flush=True)
