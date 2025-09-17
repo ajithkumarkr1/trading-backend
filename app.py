@@ -7,6 +7,7 @@ import threading
 from flask_cors import CORS
 import os
 import datetime
+import pytz
 import time
 from tabulate import tabulate
 from kiteconnect import KiteConnect
@@ -90,8 +91,10 @@ active_trades = {}   # { "NIFTY": True, "RELIANCE": False }
 broker_sessions = {}
 
 def log_stream():
+    ist = pytz.timezone("Asia/Kolkata")
     yield "data: 🟢 Trading started...\n\n"
     for i in range(1, 11):
+        now_ist = datetime.datetime.now(ist).strftime('%Y-%m-%d %H:%M:%S %Z')
         yield f"data: 🔔 Trade signal {i} at {time.strftime('%H:%M:%S')}\n\n"
         gevent.sleep(2)
     yield "data: ✅ Trading finished.\n\n"
